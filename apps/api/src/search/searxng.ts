@@ -2,6 +2,7 @@ import axios from "axios";
 import { config } from "../config";
 import { SearchResult } from "../../src/lib/entities";
 import { logger } from "../lib/logger";
+import { tbsToSearxngTimeRange } from "./tbs";
 
 interface SearchOptions {
   tbs?: string;
@@ -25,6 +26,13 @@ export async function searxng_search(
   const cleanedUrl = url.endsWith("/") ? url.slice(0, -1) : url;
   const finalUrl = cleanedUrl + "/search";
 
+  const timeRange = tbsToSearxngTimeRange(options.tbs);
+  if (options.tbs && !timeRange) {
+    logger.debug(
+      `SearXNG: tbs "${options.tbs}" has no time_range equivalent; results are unfiltered by time`,
+    );
+  }
+
   const fetchPage = async (page: number): Promise<SearchResult[]> => {
     const params = {
       q: q,
@@ -32,6 +40,8 @@ export async function searxng_search(
       // gl: options.country, //not possible with SearXNG
       // location: options.location, //not possible with SearXNG
       // num: options.num_results, //not possible with SearXNG
+      // time_range: SearXNG only supports day/week/month/year
+      ...(timeRange ? { time_range: timeRange } : {}),
       engines: config.SEARXNG_ENGINES ?? "",
       categories: config.SEARXNG_CATEGORIES ?? "",
       pageno: page,

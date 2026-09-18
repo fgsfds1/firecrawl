@@ -342,6 +342,45 @@ describeIf(TEST_PRODUCTION || HAS_SEARCH || HAS_PROXY)("Search tests", () => {
     },
     60000,
   );
+
+  // tbs is part of the search request contract ("qdr:w" etc.); the SearXNG
+  // backend must map the mappable values to time_range and accept the rest
+  // without failing the request.
+  concurrentIf(!!config.SEARXNG_ENDPOINT)(
+    "searxng accepts mappable tbs values (time_range)",
+    async () => {
+      for (const tbs of ["qdr:w", "qdr:d", "qdr:m", "qdr:y"]) {
+        const res = await search(
+          {
+            query: "firecrawl",
+            tbs,
+            limit: 3,
+          },
+          identity,
+        );
+        expect(res.web).toBeDefined();
+        expect(res.web?.length).toBeGreaterThan(0);
+      }
+    },
+    60000,
+  );
+
+  concurrentIf(!!config.SEARXNG_ENDPOINT)(
+    "searxng accepts unmappable tbs values without failing",
+    async () => {
+      const res = await search(
+        {
+          query: "firecrawl",
+          tbs: "qdr:7d",
+          limit: 3,
+        },
+        identity,
+      );
+      expect(res.web).toBeDefined();
+      expect(res.web?.length).toBeGreaterThan(0);
+    },
+    60000,
+  );
 });
 
 describeIf(TEST_PRODUCTION || HAS_SEARCH || HAS_PROXY)(

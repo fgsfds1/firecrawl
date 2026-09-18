@@ -4,6 +4,7 @@ import { JSDOM } from "jsdom";
 import { SearchV2Response, WebSearchResult } from "../../lib/entities";
 import { logger } from "../../lib/logger";
 import { getSecureDispatcher } from "../../scraper/scrapeURL/engines/utils/safeFetch";
+import { tbsToDdgDf } from "../tbs";
 
 class DDGAntiBotError extends Error {
   constructor() {
@@ -124,8 +125,13 @@ export async function ddgSearch(
       params.set("kl", `${country.toLowerCase()}-${lang.toLowerCase()}`);
     }
 
-    if (tbs && (["d", "w", "m", "y"].includes(tbs) || tbs.includes(".."))) {
-      params.set("df", tbs);
+    const df = tbsToDdgDf(tbs);
+    if (df) {
+      params.set("df", df);
+    } else if (tbs) {
+      logger.debug(
+        `DuckDuckGo: tbs "${tbs}" has no df equivalent; results are unfiltered by time`,
+      );
     }
 
     const results: WebSearchResult[] = [];
