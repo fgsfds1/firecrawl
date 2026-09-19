@@ -610,7 +610,7 @@ const extractTransform = (obj: ScrapeOptions) => {
       obj.extract ||
       includesFormat(obj.formats, "json") ||
       obj.jsonOptions) &&
-    obj.timeout === 30000
+    obj.timeout === 45000
   ) {
     obj = { ...obj, timeout: 60000 };
   }
@@ -622,7 +622,7 @@ const extractTransform = (obj: ScrapeOptions) => {
     obj = { ...obj, waitFor: 5000 };
   }
 
-  if (includesFormat(obj.formats, "changeTracking") && obj.timeout === 30000) {
+  if (includesFormat(obj.formats, "changeTracking") && obj.timeout === 45000) {
     obj = { ...obj, timeout: 60000 };
   }
 
@@ -634,7 +634,7 @@ const extractTransform = (obj: ScrapeOptions) => {
     (obj.proxy === "stealth" ||
       obj.proxy === "enhanced" ||
       obj.proxy === "auto") &&
-    obj.timeout === 30000
+    obj.timeout === 45000
   ) {
     obj = { ...obj, timeout: 120000 };
   }
@@ -840,7 +840,7 @@ const scrapeRequestSchemaBase = baseScrapeOptions
     jsonOptions: extractOptionsWithAgent.optional(),
     origin: z.string().optional().prefault("api"),
     integration: integrationSchema.optional().transform(val => val || null),
-    timeout: z.int().positive().min(1000).prefault(30000),
+    timeout: z.int().positive().min(1000).prefault(45000),
     zeroDataRetention: z.boolean().optional(),
   })
   .strict();
