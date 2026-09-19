@@ -7,6 +7,7 @@ import {
   Request as PlaywrightRequest,
   Page,
 } from 'playwright';
+import { PlaywrightBlocker } from '@cliqz/adblocker-playwright';
 import dotenv from 'dotenv';
 import UserAgent from 'user-agents';
 import { getError } from './helpers/get_error';
@@ -23,6 +24,12 @@ app.use(express.json());
 
 const BLOCK_MEDIA =
   (process.env.BLOCK_MEDIA || 'False').toUpperCase() === 'TRUE';
+// Ad/tracker blocking via @cliqz/adblocker-playwright (EasyList/EasyPrivacy
+// compatible prebuilt lists). Enabled by default; the filter lists are
+// downloaded ONCE at container startup, not per request. Fail-open: if the
+// download fails the service still starts and scrapes without blocking.
+const ADBLOCKER_ENABLED =
+  (process.env.ADBLOCKER_ENABLED || 'True').toUpperCase() !== 'FALSE';
 const MAX_CONCURRENT_PAGES = Math.max(
   1,
   Number.parseInt(process.env.MAX_CONCURRENT_PAGES ?? '10', 10) || 10,
@@ -185,6 +192,7 @@ interface UrlModel {
 }
 
 let browser: Browser;
+let adBlocker: PlaywrightBlocker | null = null;
 
 const initializeBrowser = async () => {
   browser = await chromium.launch({
@@ -443,6 +451,18 @@ app.post('/scrape', async (req: Request, res: Response) => {
     securityState = contextBundle.securityState;
     page = await requestContext.newPage();
 
+    // Enable ad/tracker blocking on this page before navigation. Page-level
+    // interception runs ahead of the context-level SSRF/ad-domain routes and
+    // stops third-party analytics/ad beacons (e.g. Yandex.Metrika webvisor)
+    // from holding the window `load` event past the scrape deadline.
+    if (adBlocker) {
+      try {
+        await adBlocker.enableBlockingInPage(page);
+      } catch (error) {
+        console.warn('Failed to enable adblocker on page:', error);
+      }
+    }
+
     if (headers) {
       // A Cookie header passed through setExtraHTTPHeaders is sent on the first
       // request but DROPPED on any redirect hop (the browser regenerates the
@@ -561,6 +581,17 @@ app.post('/scrape', async (req: Request, res: Response) => {
 const start = async () => {
   ssrfProxyPort = await startSSRFProxy();
   await initializeBrowser();
+  if (ADBLOCKER_ENABLED) {
+    try {
+      adBlocker = await PlaywrightBlocker.fromPrebuiltAdsAndTracking();
+      console.log('✅ adblocker initialized (prebuilt ads+tracking lists)');
+    } catch (error) {
+      console.warn(
+        '⚠️ adblocker init failed, continuing without ad/tracker blocking:',
+        error,
+      );
+    }
+  }
   app.listen(port, () => {
     console.log(`Server is running on port ${port}`);
   });
